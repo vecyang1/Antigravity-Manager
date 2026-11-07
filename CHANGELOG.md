@@ -533,7 +533,7 @@
             -   **彻底禁止动态进程执行探测版本**: 在 Linux 环境下移除对外部可执行文件执行 `Command::new(exe_path).arg("--version")` 的兜底逻辑；针对 Electron 桌面应用在接收到 `--version` 参数时不会静默退出，而是触发 `single-instance` 机制向正在运行的主实例发送 IPC 消息导致主窗口每数秒被强制恢复并置于最前台抢占焦点、或在客户端关闭时意外启动新实例的致命缺陷，全面改为安全的静态文件与元数据检测。(Fixes #3728, Thanks to @bkspi)
             -   **多路径符号链接穿透与 asar 内存解析**: 自动通过 `fs::canonicalize` 解析符号链接定位到可执行文件真实物理安装根目录，覆盖 Linux 标准安装路径（`/opt/Antigravity/`、`/usr/share/` 等）下的 `resources/app/package.json` 与 `product.json`；并针对打包于 asar 内的场景实现轻量内存解析器 `extract_version_from_asar_bytes`，探查失败时安全降级默认值，从物理层面杜绝任何外部进程唤醒。(Fixes #3728)
             -   **版本探查 60 秒全局内存缓存**: 在 `get_antigravity_version_with_path` 引入带有 60 秒 TTL 的内存缓存（`VERSION_CACHE`），彻底消除前端轮询与窗口焦点切换时对磁盘版本文件的高频 I/O 探查损耗。(Fixes #3728)
-            -   **解除经典款切号对 CLI 专属凭证的覆写覆盖**: 为 `write_to_file_credentials` 引入 `sync_agy_cli` 显式控制开关；切换经典款应用时仅维护钥匙串与通用凭证，严禁盲目冲刷 `~/.gemini/antigravity-cli/antigravity-oauth-token`；仅在显式切换 CLI 时同步更新 CLI 凭证文件，杜绝切经典款冲掉 CLI 独立账号的冲突问题。(Fixes #3728)
+            -   **解除经典款切号对 CLI 专属凭证的覆写覆盖**: 为 `write_to_file_credentials` 引入 `sync_agy_cli` 显式控制开关；切换经典款应用时仅维护钥匙串与通用凭证，严禁盲目冲刷 `internal-docs`；仅在显式切换 CLI 时同步更新 CLI 凭证文件，杜绝切经典款冲掉 CLI 独立账号的冲突问题。(Fixes #3728)
             -   **补全多端账号生效探测的回退隔离**: 优化 `detect_active_clients_status`，当某一客户端未在钥匙串直接匹配时，优先回退到该客户端专属记录的目标账号 ID（`current_classic_account_id` / `current_agy_account_id` / `current_ide_account_id`），杜绝因返回 `None` 导致前端错误回退到全局最后切换的账号而造成“一个变另一个也跟着变”的视觉联动。(Fixes #3728)
         -   **[Gemini 协议 URL Query (?key=) 授权鉴权全面兼容] (Fixes #3729, Thanks to @Ran-Xing)**:
             -   **支持标准 URL Query 传参提取 API Key**: 针对 Google Gemini 官方标准 REST 协议及第三方客户端（如 Cherry Studio 等）通过 URL Query 参数（例如 `?key=YOUR_API_KEY` 或 `?alt=sse&key=...`）传参调用代理时，因中间件仅检查 HTTP Header 而被误判拦截为 `401 Unauthorized` 的问题，重构 `extract_api_key` 鉴权凭证提取管道，完整覆盖 `Authorization: Bearer`、`x-api-key`、`x-goog-api-key` 及 URL Query `?key=`。(Fixes #3729, Thanks to @Ran-Xing)
@@ -705,7 +705,7 @@
         -   **[本地账号扫描全链路对齐与旧版备份移除]**:
             -   **精简移除旧版 V1 备份与界面轻量化**: 在新增账号弹窗中彻底移除早期 V1 版本（`~/.antigravity-agent`）冗余导入入口与分割线，将界面聚焦并精简为「自动扫描本地已登录账号」与「从自定义 DB 导入」，同步优化多语言文案与布局空间。
             -   **经典款与 IDE 款数据库候选全量聚合 (state.vscdb)**: 新增 `db::get_all_antigravity_db_paths()`，破除先前导入扫描仅检索经典款 `Antigravity` 的限制；支持无缝并发聚合经典款与 Antigravity IDE（含 `antigravity-ide` 变体）所有活动数据库实例，彻底解决 IDE 款已登录账号被静默漏检的问题。
-            -   **Antigravity CLI (agy) 原生凭据独立并发探测**: 新增 `read_antigravity_cli_credentials()`，解决系统 Keyring 短路拦截导致无法检索 CLI 令牌的缺陷；独立扫描 Antigravity CLI 原生凭据与备份文件（`~/.gemini/antigravity-cli/antigravity-oauth-token*`），严格限定仅处理 Antigravity 生态凭据，实现多源账号自动去重全量入池。
+            -   **Antigravity CLI (agy) 原生凭据独立并发探测**: 新增 `read_antigravity_cli_credentials()`，解决系统 Keyring 短路拦截导致无法检索 CLI 令牌的缺陷；独立扫描 Antigravity CLI 原生凭据与备份文件（`internal-docs*`），严格限定仅处理 Antigravity 生态凭据，实现多源账号自动去重全量入池。
         -   **[经典款、IDE 款与 CLI (agy) 三端当前账号独立追踪与情境化多端徽章] (Ref #3630, Ref #3686)**:
             -   **三端活动账号独立探测与事实对齐**: 新增 `detect_active_clients_status` 与 `get_active_clients_status` Tauri 命令，分别精准探查 Antigravity 经典款（Keychain / DB）、Antigravity IDE (`state.vscdb`) 以及 Antigravity CLI (`agy` 原生凭据与 Keyring) 三端真实的当前生效账号；告别以往单全局 `current_account_id` 互相覆盖、状态混乱与归属不明的问题。
             -   **持久化索引结构与多端切换记忆**: 在 `AccountIndex` 中扩展 `current_classic_account_id`、`current_ide_account_id` 与 `current_agy_account_id` 字段；在针对特定目标端（Classic / IDE / CLI）切换生效账号时，精准更新对应端的活动账号记录并持久化索引。
@@ -1240,7 +1240,7 @@
             -   **UI 架构重构与“模型配置”顶级面板 (Thanks to @jeikl)**: 顶部导航新增「模型配置」顶级菜单，思考设置迁入并默认折叠，提供全新多模态设置面板与 Claude Desktop Cowork 门限调节面板；升级内部报错滑动窗口环形缓冲区 (`InternalErrorWindow`)。
             -   **双向木桶约束与真实 5H 配额呈现 (Fixes #3556, Fixes #3564)**: 修复 5H 视图被周配额强制覆盖导致数字失真的缺陷，全面支持三态透镜切换，忠实呈现真实 5H 滚动百分比与周限约束角标。
         -   **[Antigravity CLI 原生凭据同步与系统健壮性加固] 打通 agy 凭证文件，无头空配置自愈与纯代理切号容错**:
-            -   **Antigravity CLI (agy) 原生凭证双向同步与毫秒级过期防御 (Fixes #3567, Thanks to @brushax)**: 跨平台实时双向同步原生凭证文件 `~/.gemini/antigravity-cli/antigravity-oauth-token`，并严密防范毫秒级/微秒级时间戳（> 2,000,000,000）导致的凭据提前过期。
+            -   **Antigravity CLI (agy) 原生凭证双向同步与毫秒级过期防御 (Fixes #3567, Thanks to @brushax)**: 跨平台实时双向同步原生凭证文件 `internal-docs`，并严密防范毫秒级/微秒级时间戳（> 2,000,000,000）导致的凭据提前过期。
             -   **无头模式空配置自愈 (Fixes #3548)**: 配置文件不存在、0 字节或仅有空白时，自动使用默认配置并原子写回，杜绝 EOF 处崩溃。
             -   **客户端探测与纯代理切号容错 (Fixes #3530)**: 补齐跨平台安装路径与 PATH 扫描；未安装客户端时凭据写入成功后安全完成切号。
             -   **网关架构净化与第三方解耦**: 彻底剥离遗留的 z.ai 提供商与本地 MCP 服务工具链，后端与前端全面瘦身，回归纯净线缆。
@@ -1258,7 +1258,7 @@
         -   **[纯思考空回复流式自愈门禁] 进站流水线实现纯思考回复智能兜底，统一正文为 task ready (Pipeline First)**:
             -   **空正文自动保全门禁**: 针对特定模型在开启深度思考时仅输出思考块却缺失正文文本的边缘情况，流水线统一在流式收尾处注入中性合规兜底文本 `"task ready"`，彻底解决部分客户端由于正文为空产生的界面渲染中断或解析异常。
         -   **[Antigravity CLI (agy) 原生凭证双向同步与毫秒级过期防御] 补齐原生凭证文件同步并复用 Keyring 解析器 (Fixes #3567, Thanks to @brushax)**:
-            -   **CLI 原生凭证文件全链路打通**: 跨平台实时双向同步原生凭证文件 `~/.gemini/antigravity-cli/antigravity-oauth-token`，使官方 CLI 工具（agy）与网关账号切换完全同频。
+            -   **CLI 原生凭证文件全链路打通**: 跨平台实时双向同步原生凭证文件 `internal-docs`，使官方 CLI 工具（agy）与网关账号切换完全同频。
             -   **毫秒级时间戳防溢出防御**: 修复凭证过期时间解析逻辑，严密防范毫秒级时间戳（Unix timestamp in ms）被当作秒级处理导致的凭证提前过期或整数溢出。
 
     *   **v4.8.6-beta.8 (2026-09-30)**:
@@ -1714,7 +1714,7 @@
             -   **SQLite 极速索引升级**: 新增针对 `primary_tool_id`、`session_key`、`id` 的正向/倒序覆盖索引，单次点查与淘汰提速至微秒级。
         -   **[系统兼容与配额防御] 周配额耗尽熔断与 Linux 无桌面环境凭据回退 (PR #3476, Fixes #3472, Fixes #3473)**:
             -   **周配额熔断**: 周配额耗尽（0%）强制锁定退出可用轮换池，解除 429 死循环轮询重试。
-            -   **Linux Keyring 容灾回退**: 在无桌面环境（缺少 `secret-tool` / D-Bus）时，自动降级回退至写入本地 SQLite `state.vscdb` 以及 `~/.gemini/oauth_creds.json`，解决无法切换账号的报错。
+            -   **Linux Keyring 容灾回退**: 在无桌面环境（缺少 `secret-tool` / D-Bus）时，自动降级回退至写入本地 SQLite `state.vscdb` 以及 `internal-docs`，解决无法切换账号的报错。
     *   **v4.7.6 (2026-09-18)**:
         -   **[对齐官方 IDE 订阅判定与权威解析] 彻底重构订阅解析链路，根治免费账号误判 PRO (PR #3470, Fixes #3469)**:
             -   **对齐官方机器字段 `paidTier.id`**: 订阅等级提取全面改由机器可读的唯一权威字段 `id`（`free-tier` / `g1-pro-tier` / `g1-ultra-tier`）优先驱动，摒弃易受语言环境干扰的自由文本 `name`，精准收敛识别 Ultra 内部代号 `helium` 与免费代号 `starter`。
@@ -2033,8 +2033,8 @@
             -   *相关 PR*: 详见 [PR #3314](https://github.com/lbjlaq/Antigravity-Manager/pull/3314) (修复 [#3313](https://github.com/lbjlaq/Antigravity-Manager/issues/3313), 关联 [#3272](https://github.com/lbjlaq/Antigravity-Manager/issues/3272))。
     *   **v4.5.6 (2026-08-15)**:
         -   **[核心优化] 账号切换时同步写入本地文件凭据 (Sync File-Based Credentials on Account Switch)**:
-            -   **支持 SSH 与容器无头环境**: 修复在 SSH 远程会话、容器或无 D-Bus/Keyring 环境下使用 CLI (`agy`) 时，因环境探测自动回退读取 `~/.gemini/oauth_creds.json` 而无法感知图形端账号切换的问题。
-            -   **双通道凭据同步与权限保护**: 在写入系统 Keyring 的同时，自动同步更新 `~/.gemini/oauth_creds.json` 和 `~/.gemini/google_accounts.json`，并在 Unix 系统上强制设定 `0o600` 严格文件权限以保护凭据安全。
+            -   **支持 SSH 与容器无头环境**: 修复在 SSH 远程会话、容器或无 D-Bus/Keyring 环境下使用 CLI (`agy`) 时，因环境探测自动回退读取 `internal-docs` 而无法感知图形端账号切换的问题。
+            -   **双通道凭据同步与权限保护**: 在写入系统 Keyring 的同时，自动同步更新 `internal-docs` 和 `internal-docs`，并在 Unix 系统上强制设定 `0o600` 严格文件权限以保护凭据安全。
             -   *相关 PR*: 详见 [PR #3297](https://github.com/lbjlaq/Antigravity-Manager/pull/3297)。
         -   **[核心修复] OpenAI Responses API 协议全流程兼容性加固 (OpenAI Responses API Hardening)**:
             -   **宽松输入归一化**: 容错解析客户端未提供 `type` 字段的消息项，并无缝兼容字符串或数组形式的 `content`（含多模态图片内容）。
@@ -4739,8 +4739,8 @@
             -   *Related PR*: See [PR #3314](https://github.com/lbjlaq/Antigravity-Manager/pull/3314) (Fixes [#3313](https://github.com/lbjlaq/Antigravity-Manager/issues/3313), Related [#3272](https://github.com/lbjlaq/Antigravity-Manager/issues/3272)).
     *   **v4.5.6 (2026-08-15)**:
         -   **[Core Optimization] Sync File-Based Credentials on Account Switch (Sync File-Based Credentials on Account Switch)**:
-            -   **SSH & Headless Container Support**: Fixed an issue where running CLI (`agy`) over SSH sessions, containers, or environments without D-Bus/Keyring fell back to `~/.gemini/oauth_creds.json` and failed to pick up GUI account switches.
-            -   **Dual Credential Sync & Permission Hardening**: Automatically syncs `~/.gemini/oauth_creds.json` and `~/.gemini/google_accounts.json` alongside system Keyring updates, enforcing strict `0o600` permissions on Unix systems.
+            -   **SSH & Headless Container Support**: Fixed an issue where running CLI (`agy`) over SSH sessions, containers, or environments without D-Bus/Keyring fell back to `internal-docs` and failed to pick up GUI account switches.
+            -   **Dual Credential Sync & Permission Hardening**: Automatically syncs `internal-docs` and `internal-docs` alongside system Keyring updates, enforcing strict `0o600` permissions on Unix systems.
             -   *Related PR*: See [PR #3297](https://github.com/lbjlaq/Antigravity-Manager/pull/3297).
         -   **[Core Fix] Harden OpenAI Responses API Compatibility Across Input & Output (OpenAI Responses API Hardening)**:
             -   **Permissive Input Normalization**: Graciously accepts message items without explicit `type` fields, and supports string or array `content` shapes (preserving image parts).
